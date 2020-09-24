@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/michael-whatcott/assert-stats/equality"
+	"bitbucket.org/michael-whatcott/equality"
 )
 
 type Case struct {
