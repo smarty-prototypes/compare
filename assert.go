@@ -34,7 +34,7 @@ type TT struct{ *testing.T }
 func (this TT) Assert(expected, actual interface{}) bool {
 	ok, report := Compare(expected, actual)
 	if !ok {
-		this.Error("\n" + report)
+		this.Error(report)
 	}
 	return ok
 }
@@ -197,14 +197,17 @@ func (this formatter) String() string {
 	longestTypeName := max(len(expectedType), len(actualType))
 	expectedType += strings.Repeat(" ", longestTypeName-len(expectedType))
 	actualType += strings.Repeat(" ", longestTypeName-len(actualType))
-	// TODO: If the formatted values are of the same type, and appear equal, maybe we json serialize them?
 	// TODO: %+v or %#v or just %v... (maybe we try to rewrite pointers, interfaces, time.Times, or slices containing any of those?)
+	// TODO: If the formatted values are of the same type, and appear equal, maybe we json serialize them?
+	// TODO: perhaps we provide functional options that allow customization of the formatting?
+	// - time.Time should use %v
+	// - all numerics should be %v
 	expectedV := fmt.Sprintf("%#v", this.expected)
 	actualV := fmt.Sprintf("%#v", this.actual)
 	valueDiff := this.diff(actualV, expectedV)
 	typeDiff := this.diff(actualType, expectedType)
 
-	return fmt.Sprintf(""+
+	return fmt.Sprintf("\n"+
 		"Expected: %s %s\n"+
 		"Actual:   %s %s\n"+
 		"Diff:     %s %s\n"+
@@ -217,19 +220,19 @@ func (this formatter) String() string {
 }
 
 func (this formatter) diff(actualV string, expectedV string) string {
-	valueDiff := new(strings.Builder)
+	result := new(strings.Builder)
 
 	for x := 0; ; x++ {
 		if x >= len(actualV) && x >= len(expectedV) {
 			break
 		}
 		if x >= len(actualV) || x >= len(expectedV) || expectedV[x] != actualV[x] {
-			valueDiff.WriteString("^")
+			result.WriteString("^")
 		} else {
-			valueDiff.WriteString(" ")
+			result.WriteString(" ")
 		}
 	}
-	return valueDiff.String()
+	return result.String()
 }
 
 func max(a, b int) int {
