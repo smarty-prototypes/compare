@@ -139,12 +139,12 @@ type numericEqualitySpecification struct {
 	aType, bType reflect.Type
 }
 
-func newNumericEqualitySpecification(expected, actual interface{}) equalitySpecification {
+func newNumericEqualitySpecification(a, b interface{}) equalitySpecification {
 	return &numericEqualitySpecification{
-		a:     expected,
-		b:     actual,
-		aType: reflect.TypeOf(expected),
-		bType: reflect.TypeOf(actual),
+		a:     a,
+		b:     b,
+		aType: reflect.TypeOf(a),
+		bType: reflect.TypeOf(b),
 	}
 }
 func (this *numericEqualitySpecification) IsSatisfied() bool {
@@ -197,21 +197,39 @@ func (this formatter) String() string {
 	longestTypeName := max(len(expectedType), len(actualType))
 	expectedType += strings.Repeat(" ", longestTypeName-len(expectedType))
 	actualType += strings.Repeat(" ", longestTypeName-len(actualType))
+	// TODO: If the formatted values are of the same type, and appear equal, maybe we json serialize them?
+	// TODO: %+v or %#v or just %v... (maybe we try to rewrite pointers, interfaces, time.Times, or slices containing any of those?)
+	expectedV := fmt.Sprintf("%#v", this.expected)
+	actualV := fmt.Sprintf("%#v", this.actual)
+	valueDiff := this.diff(actualV, expectedV)
+	typeDiff := this.diff(actualType, expectedType)
 
-	// If the formatted values are of the same type, and appear equal, maybe we json serialize them?
-
-	// TODO: %+v or %#v or just %v...
-	// TODO: diff marker ^
 	return fmt.Sprintf(""+
-		"Expected: %v %v\n"+
-		"Actual:   %v %v\n"+
-		"Diff:        %s\n"+
+		"Expected: %s %s\n"+
+		"Actual:   %s %s\n"+
+		"Diff:     %s %s\n"+
 		"Stack:     \n%s\n",
-		expectedType, this.expected,
-		actualType, this.actual,
-		"",
+		expectedType, expectedV,
+		actualType, actualV,
+		typeDiff, valueDiff,
 		debug.Stack(),
 	)
+}
+
+func (this formatter) diff(actualV string, expectedV string) string {
+	valueDiff := new(strings.Builder)
+
+	for x := 0; ; x++ {
+		if x >= len(actualV) && x >= len(expectedV) {
+			break
+		}
+		if x >= len(actualV) || x >= len(expectedV) || expectedV[x] != actualV[x] {
+			valueDiff.WriteString("^")
+		} else {
+			valueDiff.WriteString(" ")
+		}
+	}
+	return valueDiff.String()
 }
 
 func max(a, b int) int {
