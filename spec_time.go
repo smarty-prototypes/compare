@@ -22,3 +22,8 @@ func (this *timeEqualitySpecification) IsSatisfied() bool {
 func (this *timeEqualitySpecification) AreEqual() bool {
 	return this.a.Equal(this.b)
 }
+
+func isTime(v interface{}) bool {
+	_, ok := v.(time.Time)
+	return ok
+}

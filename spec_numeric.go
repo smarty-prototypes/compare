@@ -17,7 +17,7 @@ func newNumericEqualitySpecification(a, b interface{}) equalitySpecification {
 	}
 }
 func (this *numericEqualitySpecification) IsSatisfied() bool {
-	return isNumeric(this.aType.Kind()) && isNumeric(this.aType.Kind())
+	return isNumeric(this.a) && isNumeric(this.b)
 }
 
 func (this *numericEqualitySpecification) AreEqual() bool {
@@ -31,7 +31,8 @@ func (this *numericEqualitySpecification) AreEqual() bool {
 	return this.a == bAsA && this.b == aAsB
 }
 
-func isNumeric(kind reflect.Kind) bool {
+func isNumeric(v interface{}) bool {
+	kind := reflect.TypeOf(v).Kind()
 	return kind == reflect.Int ||
 		kind == reflect.Int8 ||
 		kind == reflect.Int16 ||

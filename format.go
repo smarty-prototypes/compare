@@ -18,9 +18,14 @@ func newFormatter(expected, actual interface{}, options ...Option) *formatter {
 	//config.apply(options...) // TODO: uncomment (tests)
 
 	if config.format == nil {
-		config.apply(Options.FormatVerb("%#v"))
-		// TODO: time.Time should use %v
-		// TODO: all numerics should be %v
+		switch {
+		case isNumeric(expected):
+			config.apply(Options.FormatVerb("%v"))
+		case isTime(expected):
+			config.apply(Options.FormatVerb("%v"))
+		default:
+			config.apply(Options.FormatVerb("%#v"))
+		}
 	}
 
 	return &formatter{

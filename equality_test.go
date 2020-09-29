@@ -14,6 +14,7 @@ type Case struct {
 	Expected interface{}
 	Actual   interface{}
 	AreEqual bool
+	Options  []equality.Option
 }
 
 var now = time.Now()
@@ -102,6 +103,12 @@ var (
 		},
 		{
 			Skip:     false,
+			Expected: now.In(notUTC),
+			Actual:   now.UTC().Add(time.Nanosecond),
+			AreEqual: false,
+		},
+		{
+			Skip:     false,
 			Expected: int32(0),
 			Actual:   0,
 			AreEqual: true,
@@ -167,8 +174,11 @@ func TestEqual(t *testing.T) {
 			if test.AreEqual {
 				_ = equality.T(t).Assert(test.Expected, test.Actual)
 			} else {
-				if equality.Report(test.Expected, test.Actual) == "" {
+				report := equality.Report(test.Expected, test.Actual)
+				if report == "" {
 					t.Errorf("unequal values %v and %v erroneously deemed equal", test.Expected, test.Actual)
+				} else {
+					t.Log("(report printed below for visual inspection)", report)
 				}
 			}
 		})
