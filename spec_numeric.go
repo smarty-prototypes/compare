@@ -16,7 +16,7 @@ type numericEqualitySpecification struct {
 	aType, bType reflect.Type
 }
 
-func newNumericEqualitySpecification(a, b interface{}) equalitySpecification {
+func newNumericEqualitySpecification(a, b interface{}) Specification {
 	return &numericEqualitySpecification{
 		a:     a,
 		b:     b,

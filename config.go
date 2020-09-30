@@ -1,7 +1,7 @@
 package equality
 
 type config struct {
-	specs  []func(a, b interface{}) equalitySpecification
+	specs  []func(a, b interface{}) Specification
 	format func(interface{}) string
 }
 

@@ -1,6 +1,6 @@
 package equality
 
-type equalitySpecification interface {
+type Specification interface {
 	IsSatisfied() bool
 	AreEqual() bool
 }

@@ -13,10 +13,11 @@ type deepEqualitySpecification struct {
 	aType, bType reflect.Type
 }
 
-func newDeepEqualitySpecification(a, b interface{}) equalitySpecification {
+func newDeepEqualitySpecification(a, b interface{}) Specification {
 	return &deepEqualitySpecification{
 		a: a,
 		b: b,
+
 		aType: reflect.TypeOf(a),
 		bType: reflect.TypeOf(b),
 	}
@@ -27,4 +28,3 @@ func (this *deepEqualitySpecification) IsSatisfied() bool {
 func (this *deepEqualitySpecification) AreEqual() bool {
 	return reflect.DeepEqual(this.a, this.b)
 }
-

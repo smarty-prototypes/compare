@@ -15,7 +15,7 @@ type timeEqualitySpecification struct {
 	bOK bool
 }
 
-func newTimeEqualitySpecification(a, b interface{}) equalitySpecification {
+func newTimeEqualitySpecification(a, b interface{}) Specification {
 	this := &timeEqualitySpecification{}
 	this.a, this.aOK = a.(time.Time)
 	this.b, this.bOK = b.(time.Time)
