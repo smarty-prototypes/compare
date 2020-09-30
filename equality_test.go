@@ -18,7 +18,6 @@ func TestGeneralEquality(t *testing.T) {
 		Expected interface{}
 		Actual   interface{}
 		AreEqual bool
-		Options  []equality.Option
 	}{
 		{
 			Skip:     false,
