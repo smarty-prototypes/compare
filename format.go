@@ -15,18 +15,8 @@ type formatter struct {
 
 func newFormatter(expected, actual interface{}, options ...Option) *formatter {
 	config := new(config)
-	//config.apply(options...) // TODO: uncomment (tests)
-
-	if config.format == nil {
-		switch {
-		case isNumeric(expected):
-			config.apply(Options.FormatVerb("%v"))
-		case isTime(expected):
-			config.apply(Options.FormatVerb("%v"))
-		default:
-			config.apply(Options.FormatVerb("%#v"))
-		}
-	}
+	config.apply(options...)
+	config.applyDefaultFormatting(expected)
 
 	return &formatter{
 		expected: reflect.ValueOf(expected),

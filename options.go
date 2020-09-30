@@ -5,17 +5,6 @@ import (
 	"fmt"
 )
 
-type config struct {
-	specs  []func(a, b interface{}) equalitySpecification
-	format func(interface{}) string
-}
-
-func (this *config) apply(options ...Option) {
-	for _, option := range options {
-		option(this)
-	}
-}
-
 type Option func(*config)
 
 var Options single
