@@ -9,20 +9,18 @@ import (
 	"bitbucket.org/michael-whatcott/equality"
 )
 
-type Case struct {
-	Skip     bool
-	Expected interface{}
-	Actual   interface{}
-	AreEqual bool
-	Options  []equality.Option
-}
-
 var now = time.Now()
 
 var notUTC, _ = time.LoadLocation("America/Los_Angeles")
 
-var (
-	cases = []Case{
+func TestGeneralEquality(t *testing.T) {
+	cases := []struct {
+		Skip     bool
+		Expected interface{}
+		Actual   interface{}
+		AreEqual bool
+		Options  []equality.Option
+	}{
 		{
 			Skip:     false,
 			Expected: 0,
@@ -98,7 +96,7 @@ var (
 		{
 			Skip:     false,
 			Expected: now.In(notUTC),
-			Actual:   now.UTC(),
+			Actual:   now.In(time.UTC),
 			AreEqual: true,
 		},
 		{
@@ -156,9 +154,6 @@ var (
 			AreEqual: false,
 		},
 	}
-)
-
-func TestEqual(t *testing.T) {
 	for x, test := range cases {
 		title := fmt.Sprintf(
 			"%d.Equal(%+v,%+v)==%t",
@@ -190,6 +185,8 @@ type Thing struct {
 }
 
 func TestFormatV(t *testing.T) {
+	t.Skip("just for demonstration")
+
 	now := time.Now()
 
 	t.Logf("%v", []int{1, 2, 3})  // [1 2 3]
