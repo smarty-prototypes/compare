@@ -2,6 +2,11 @@ package equality
 
 import "reflect"
 
+// deepEqualitySpecification compares any two values
+// using reflect.DeepEqual.
+//
+// https://golang.org/pkg/reflect/#DeepEqual
+//
 type deepEqualitySpecification struct {
 	a, b interface{}
 

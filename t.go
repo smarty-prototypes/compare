@@ -6,6 +6,7 @@ func T(t *testing.T) TT {
 	return TT{T: t}
 }
 
+// TT embeds *testing.T to provide an Assert method.
 type TT struct{ *testing.T }
 
 // Assert compares expected and actual and calls t.Error with

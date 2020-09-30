@@ -2,6 +2,11 @@ package equality
 
 import "time"
 
+// timeEqualitySpecification comparse values both of type
+// time.Time using their Equal method.
+//
+// https://golang.org/pkg/time/#Time.Equal
+//
 type timeEqualitySpecification struct {
 	a time.Time
 	b time.Time

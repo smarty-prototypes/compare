@@ -2,6 +2,14 @@ package equality
 
 import "reflect"
 
+// numericEqualitySpecification compares numeric values using
+// the built-in equality operator (`==`). Values of differing
+// numeric reflect.Kind are each converted to the type of the
+// other and are compared with `==` in both directions.
+//
+// https://golang.org/ref/spec#Comparison_operators
+// https://golang.org/pkg/reflect/#Kind
+//
 type numericEqualitySpecification struct {
 	a, b interface{}
 
