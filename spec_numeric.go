@@ -12,17 +12,10 @@ import "reflect"
 //
 type numericEqualitySpecification struct {
 	a, b interface{}
-
-	aType, bType reflect.Type
 }
 
 func newNumericEqualitySpecification(a, b interface{}) Specification {
-	return &numericEqualitySpecification{
-		a:     a,
-		b:     b,
-		aType: reflect.TypeOf(a),
-		bType: reflect.TypeOf(b),
-	}
+	return &numericEqualitySpecification{a: a, b: b}
 }
 func (this *numericEqualitySpecification) IsSatisfied() bool {
 	return isNumeric(this.a) && isNumeric(this.b)
@@ -34,8 +27,8 @@ func (this *numericEqualitySpecification) AreEqual() bool {
 	}
 	aValue := reflect.ValueOf(this.a)
 	bValue := reflect.ValueOf(this.b)
-	aAsB := aValue.Convert(this.bType).Interface()
-	bAsA := bValue.Convert(this.aType).Interface()
+	aAsB := aValue.Convert(bValue.Type()).Interface()
+	bAsA := bValue.Convert(aValue.Type()).Interface()
 	return this.a == bAsA && this.b == aAsB
 }
 
