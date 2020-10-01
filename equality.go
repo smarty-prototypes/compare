@@ -329,7 +329,7 @@ func (this formatter) formatUnequal() string {
 		expectedType, expectedV,
 		actualType, actualV,
 		typeDiff, valueDiff,
-		debug.Stack(),
+		debug.Stack(), // TODO: filter out lines from this file, go runtime, and go testing lib
 	)
 }
 
