@@ -1,3 +1,3 @@
-module bitbucket.org/michael-whatcott/equality
+module github.com/smartystreets-prototypes/equality
 
 go 1.15

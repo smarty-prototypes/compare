@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/michael-whatcott/equality"
+	"github.com/smartystreets-prototypes/equality"
 )
 
 func Test(t *testing.T) {
