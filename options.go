@@ -49,8 +49,3 @@ func (single) FormatJSON() Option {
 		}
 	}
 }
-
-// TODO: CompareEqual (==)
-// TODO: CompareFloats (32 and/or 64, almost equal, within tolerance)
-// TODO: IncludeDiffInFailureReport
-// TODO: IncludeStackInFailureReport
