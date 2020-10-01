@@ -41,7 +41,7 @@ func Report(expected, actual interface{}, options ...Option) string {
 func Compare(expected, actual interface{}, options ...Option) (ok bool, report string) {
 	ok = Check(expected, actual, options...)
 	if !ok {
-		report = newFormatter(expected, actual, options...).String()
+		report = newFormatter(expected, actual, options...).Format()
 	}
 	return ok, report
 }
@@ -68,38 +68,30 @@ func Check(expected, actual interface{}, options ...Option) bool {
 
 type Option func(*config)
 
-var Options single
+var Options options
 
-type single struct{}
+type options struct{}
 
-func (single) CompareNumerics() Option {
-	return func(this *config) {
-		this.specs = append(this.specs, newNumericEqualitySpecification)
-	}
+func (options) CompareNumerics() Option {
+	return func(this *config) { this.appendSpec(newNumericEqualitySpecification) }
 }
-func (single) CompareTimes() Option {
-	return func(this *config) {
-		this.specs = append(this.specs, newTimeEqualitySpecification)
-	}
+func (options) CompareTimes() Option {
+	return func(this *config) { this.appendSpec(newTimeEqualitySpecification) }
 }
-func (single) CompareDeep() Option {
-	return func(this *config) {
-		this.specs = append(this.specs, newDeepEqualitySpecification)
-	}
+func (options) CompareDeep() Option {
+	return func(this *config) { this.appendSpec(newDeepEqualitySpecification) }
 }
-func (single) CompareEqual() Option {
-	return func(this *config) {
-		this.specs = append(this.specs, newEqualitySpecification)
-	}
+func (options) CompareEqual() Option {
+	return func(this *config) { this.appendSpec(newEqualitySpecification) }
 }
-func (single) FormatVerb(verb string) Option {
+func (options) FormatVerb(verb string) Option {
 	return func(this *config) {
 		this.format = func(a interface{}) string {
 			return fmt.Sprintf(verb, a)
 		}
 	}
 }
-func (single) FormatJSON() Option {
+func (options) FormatJSON() Option {
 	return func(this *config) {
 		this.format = func(a interface{}) string {
 			serialized, err := json.Marshal(a)
@@ -111,9 +103,15 @@ func (single) FormatJSON() Option {
 	}
 }
 
+type specFunc func(a, b interface{}) Specification
+
 type config struct {
-	specs  []func(a, b interface{}) Specification
+	specs  []specFunc
 	format func(interface{}) string
+}
+
+func (this *config) appendSpec(f specFunc) {
+	this.specs = append(this.specs, f)
 }
 
 func (this *config) apply(options ...Option) {
@@ -294,7 +292,7 @@ func newFormatter(expected, actual interface{}, options ...Option) *formatter {
 	}
 }
 
-func (this formatter) String() string {
+func (this formatter) Format() string {
 	expectedType := fmt.Sprintf("<%v>", this.expected.Type())
 	actualType := fmt.Sprintf("<%v>", this.actual.Type())
 	longestTypeName := max(len(expectedType), len(actualType))
