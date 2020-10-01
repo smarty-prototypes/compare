@@ -163,6 +163,12 @@ func Test(t *testing.T) {
 	})
 }
 
+func runCases(t *testing.T, cases []TestCase) {
+	for x, test := range cases {
+		t.Run(test.Title(x), test.Run)
+	}
+}
+
 var now = time.Now()
 
 var notUTC, _ = time.LoadLocation("America/Los_Angeles")
@@ -202,11 +208,5 @@ func (this TestCase) Run(t *testing.T) {
 		} else {
 			t.Log("(report printed below for visual inspection)", report)
 		}
-	}
-}
-
-func runCases(t *testing.T, cases []TestCase) {
-	for x, test := range cases {
-		t.Run(test.Title(x), test.Run)
 	}
 }
