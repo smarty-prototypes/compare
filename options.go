@@ -26,6 +26,11 @@ func (single) CompareDeep() Option {
 		this.specs = append(this.specs, newDeepEqualitySpecification)
 	}
 }
+func (single) CompareEqual() Option {
+	return func(this *config) {
+		this.specs = append(this.specs, newEqualitySpecification)
+	}
+}
 func (single) FormatVerb(verb string) Option {
 	return func(this *config) {
 		this.format = func(a interface{}) string {

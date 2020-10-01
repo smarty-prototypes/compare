@@ -142,6 +142,24 @@ func Test(t *testing.T) {
 			Actual:   func() {},
 			AreEqual: false,
 		},
+		{
+			Skip:     false,
+			Expected: 1,
+			Actual:   1,
+			AreEqual: true,
+			Options: []equality.Option{
+				equality.Options.CompareEqual(),
+			},
+		},
+		{
+			Skip:     false,
+			Expected: int32(1),
+			Actual:   int64(1),
+			AreEqual: false,
+			Options: []equality.Option{
+				equality.Options.CompareEqual(),
+			},
+		},
 	})
 }
 
