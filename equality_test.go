@@ -8,17 +8,8 @@ import (
 	"bitbucket.org/michael-whatcott/equality"
 )
 
-var now = time.Now()
-
-var notUTC, _ = time.LoadLocation("America/Los_Angeles")
-
 func TestGeneralEquality(t *testing.T) {
-	cases := []struct {
-		Skip     bool
-		Expected interface{}
-		Actual   interface{}
-		AreEqual bool
-	}{
+	runCases(t, []TestCase{
 		{
 			Skip:     false,
 			Expected: 0,
@@ -151,33 +142,53 @@ func TestGeneralEquality(t *testing.T) {
 			Actual:   func() {},
 			AreEqual: false,
 		},
-	}
-	for x, test := range cases {
-		title := fmt.Sprintf(
-			"%d.Equal(%+v,%+v)==%t",
-			x,
-			test.Expected,
-			test.Actual,
-			test.AreEqual,
-		)
-		t.Run(title, func(t *testing.T) {
-			if test.Skip {
-				t.Skip()
-			}
-			if test.AreEqual {
-				_ = equality.T(t).Assert(test.Expected, test.Actual)
-			} else {
-				report := equality.Report(test.Expected, test.Actual)
-				if report == "" {
-					t.Errorf("unequal values %v and %v erroneously deemed equal", test.Expected, test.Actual)
-				} else {
-					t.Log("(report printed below for visual inspection)", report)
-				}
-			}
-		})
-	}
+	})
 }
+
+var now = time.Now()
+
+var notUTC, _ = time.LoadLocation("America/Los_Angeles")
 
 type Thing struct {
 	Integer int
+}
+
+type TestCase struct {
+	Skip     bool
+	Expected interface{}
+	Actual   interface{}
+	AreEqual bool
+	Options  []equality.Option
+}
+
+func (this TestCase) Title(x int) string {
+	return fmt.Sprintf(
+		"%d.Equal(%+v,%+v)==%t",
+		x,
+		this.Expected,
+		this.Actual,
+		this.AreEqual,
+	)
+}
+
+func (this TestCase) Run(t *testing.T) {
+	if this.Skip {
+		t.Skip()
+	}
+	if this.AreEqual {
+		_ = equality.T(t).Assert(this.Expected, this.Actual, this.Options...)
+	} else {
+		report := equality.Report(this.Expected, this.Actual, this.Options...)
+		if report == "" {
+			t.Errorf("unequal values %v and %v erroneously deemed equal", this.Expected, this.Actual)
+		} else {
+			t.Log("(report printed below for visual inspection)", report)
+		}
+	}
+}
+
+func runCases(t *testing.T, cases []TestCase) {
+	for x, test := range cases {
+		t.Run(test.Title(x), test.Run)
+	}
 }
