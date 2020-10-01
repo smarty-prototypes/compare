@@ -243,7 +243,7 @@ func isNumeric(v interface{}) bool {
 		kind == reflect.Float64
 }
 
-// timeEqualitySpecification comparse values both of type
+// timeEqualitySpecification compares values both of type
 // time.Time using their Equal method.
 //
 // https://golang.org/pkg/time/#Time.Equal
