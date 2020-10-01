@@ -8,7 +8,7 @@ import (
 	"bitbucket.org/michael-whatcott/equality"
 )
 
-func TestGeneralEquality(t *testing.T) {
+func Test(t *testing.T) {
 	runCases(t, []TestCase{
 		{
 			Skip:     false,
