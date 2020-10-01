@@ -200,13 +200,21 @@ func (this TestCase) Run(t *testing.T) {
 		t.Skip()
 	}
 	if this.AreEqual {
-		_ = equality.T(t).Assert(this.Expected, this.Actual, this.Options...)
-	} else {
-		report := equality.Report(this.Expected, this.Actual, this.Options...)
-		if report == "" {
-			t.Errorf("unequal values %v and %v erroneously deemed equal", this.Expected, this.Actual)
+		options := append(this.Options, equality.Options.TestingT(t))
+		comparer := equality.New(options...)
+		comparison := comparer.Compare(this.Expected, this.Actual)
+		if comparison.OK() {
+			t.Log(comparison.Report())
 		} else {
-			t.Log("(report printed below for visual inspection)", report)
+			t.Error(comparison.Report())
+		}
+	} else {
+		comparer := equality.New(this.Options...)
+		comparison := comparer.Compare(this.Expected, this.Actual)
+		if !comparison.OK() {
+			t.Log("(report printed below for visual inspection)", comparison.Report())
+		} else {
+			t.Errorf("unequal values %v and %v erroneously deemed equal", this.Expected, this.Actual)
 		}
 	}
 }

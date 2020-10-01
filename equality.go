@@ -11,49 +11,33 @@ import (
 	"time"
 )
 
-func T(t *testing.T) TT {
-	return TT{T: t}
+type Comparer interface{
+	Compare(expected, actual interface{}) (result Comparison)
 }
 
-// TT embeds *testing.T to provide an Assert method.
-type TT struct{ *testing.T }
-
-// Assert compares expected and actual and calls t.Error with
-// a full report of any discrepancy between them.
-func (this TT) Assert(expected, actual interface{}, options ...Option) bool {
-	ok, report := Compare(expected, actual, options...)
-	if !ok {
-		this.T.Helper()
-		this.T.Error(report)
-	}
-	return ok
+type comparer struct {
+	options []Option
 }
 
-// Report compares expected and actual and returns
-// a full report of any discrepancy between them.
-func Report(expected, actual interface{}, options ...Option) string {
-	_, report := Compare(expected, actual, options...)
-	return report
+func New(options ...Option) Comparer {
+	return comparer{options: options}
 }
 
 // Compare returns a comparison of expected and actual as well as
 // a full report of any discrepancy between them.
-func Compare(expected, actual interface{}, options ...Option) (ok bool, report string) {
-	ok = Check(expected, actual, options...)
-	if !ok {
-		report = newFormatter(expected, actual, options...).Format()
-	}
-	return ok, report
-}
-
-// Check returns a comparison of expected and actual according
-// to the specifications defined in this package.
-func Check(expected, actual interface{}, options ...Option) bool {
+func (this comparer) Compare(expected, actual interface{}) (result Comparison) {
 	config := new(config)
-	config.apply(options...)
+	config.apply(this.options...)
 	config.applyDefaultEqualitySpecs()
 
-	for _, factory := range config.specs {
+	result.ok = check(expected, actual, config.specs...)
+	result.report = newFormatter(expected, actual, config).Format(result.ok)
+	config.reportT(result)
+	return result
+}
+
+func check(expected, actual interface{}, specs ...specFunc) bool {
+	for _, factory := range specs {
 		spec := factory(expected, actual)
 		if !spec.IsSatisfied() {
 			continue
@@ -66,12 +50,27 @@ func Check(expected, actual interface{}, options ...Option) bool {
 	return false
 }
 
+type Comparison struct {
+	ok     bool
+	report string
+}
+
+func (this Comparison) OK() bool {
+	return this.ok
+}
+func (this Comparison) Report() string {
+	return this.report
+}
+
 type Option func(*config)
 
 var Options options
 
 type options struct{}
 
+func (options) TestingT(t *testing.T) Option {
+	return func(this *config) { this.t = t }
+}
 func (options) CompareNumerics() Option {
 	return func(this *config) { this.appendSpec(newNumericEqualitySpecification) }
 }
@@ -106,6 +105,7 @@ func (options) FormatJSON() Option {
 type specFunc func(a, b interface{}) Specification
 
 type config struct {
+	t      *testing.T
 	specs  []specFunc
 	format func(interface{}) string
 }
@@ -141,6 +141,12 @@ func (this *config) applyDefaultFormatting(expected interface{}) {
 		this.apply(Options.FormatVerb("%v"))
 	default:
 		this.apply(Options.FormatVerb("%#v"))
+	}
+}
+
+func (this *config) reportT(result Comparison) {
+	if !result.OK() && this.t != nil {
+		this.t.Error(result.Report())
 	}
 }
 
@@ -277,29 +283,41 @@ func isTime(v interface{}) bool {
 type formatter struct {
 	expected reflect.Value
 	actual   reflect.Value
-	format   func(interface{}) string
+	config   *config
 }
 
-func newFormatter(expected, actual interface{}, options ...Option) *formatter {
-	config := new(config)
-	config.apply(options...)
+func newFormatter(expected, actual interface{}, config *config) *formatter {
 	config.applyDefaultFormatting(expected)
 
 	return &formatter{
+		config:   config,
 		expected: reflect.ValueOf(expected),
 		actual:   reflect.ValueOf(actual),
-		format:   config.format,
 	}
 }
 
-func (this formatter) Format() string {
+func (this formatter) Format(equal bool) string {
+	if equal {
+		return this.formatEqual()
+	} else {
+		return this.formatUnequal()
+	}
+}
+
+func (this formatter) formatEqual() string {
+	return fmt.Sprintf("%s == %s",
+		this.config.format(this.actual),
+		this.config.format(this.expected),
+	)
+}
+func (this formatter) formatUnequal() string {
 	expectedType := fmt.Sprintf("<%v>", this.expected.Type())
 	actualType := fmt.Sprintf("<%v>", this.actual.Type())
 	longestTypeName := max(len(expectedType), len(actualType))
 	expectedType += strings.Repeat(" ", longestTypeName-len(expectedType))
 	actualType += strings.Repeat(" ", longestTypeName-len(actualType))
-	expectedV := this.format(this.expected)
-	actualV := this.format(this.actual)
+	expectedV := this.config.format(this.expected)
+	actualV := this.config.format(this.actual)
 	valueDiff := this.diff(actualV, expectedV)
 	typeDiff := this.diff(actualType, expectedType)
 
