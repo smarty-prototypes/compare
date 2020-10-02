@@ -2,6 +2,7 @@
 package equality
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -74,11 +75,16 @@ func FormatVerb(verb string) Formatter {
 }
 func FormatJSON(indent string) Formatter {
 	return func(v interface{}) string {
-		raw, err := json.MarshalIndent(v, "", indent)
+		raw, err := json.Marshal(v)
 		if err != nil {
 			return err.Error()
 		}
-		return string(raw)
+		if indent == "" {
+			return string(raw)
+		}
+		indented := new(bytes.Buffer)
+		_ = json.Indent(indented, raw, "", indent)
+		return indented.String()
 	}
 }
 
