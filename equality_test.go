@@ -148,7 +148,7 @@ func Test(t *testing.T) {
 			Actual:   1,
 			AreEqual: true,
 			Options: []equality.Option{
-				equality.Options.CompareEqual(),
+				equality.Options.CompareWith(equality.SimpleEquality{}),
 			},
 		},
 		{
@@ -157,7 +157,16 @@ func Test(t *testing.T) {
 			Actual:   int64(1),
 			AreEqual: false,
 			Options: []equality.Option{
-				equality.Options.CompareEqual(),
+				equality.Options.CompareWith(equality.SimpleEquality{}),
+			},
+		},
+		{
+			Skip:     false,
+			Expected: Thing{Integer: 42},
+			Actual:   Thing{Integer: 43},
+			AreEqual: false,
+			Options: []equality.Option{
+				equality.Options.FormatWith(equality.FormatJSON("  ")),
 			},
 		},
 	})
@@ -200,8 +209,7 @@ func (this TestCase) Run(t *testing.T) {
 		t.Skip()
 	}
 	if this.AreEqual {
-		options := append(this.Options, equality.Options.TestingT(t))
-		comparer := equality.New(options...)
+		comparer := equality.NewFromTesting(t, this.Options...)
 		comparison := comparer.Compare(this.Expected, this.Actual)
 		if comparison.OK() {
 			t.Log(comparison.Report())

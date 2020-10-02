@@ -4,6 +4,7 @@ package equality
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -11,43 +12,8 @@ import (
 	"time"
 )
 
-type Comparer interface{
-	Compare(expected, actual interface{}) (result Comparison)
-}
-
-type comparer struct {
-	options []Option
-}
-
-func New(options ...Option) Comparer {
-	return comparer{options: options}
-}
-
-// Compare returns a comparison of expected and actual as well as
-// a full report of any discrepancy between them.
-func (this comparer) Compare(expected, actual interface{}) (result Comparison) {
-	config := new(config)
-	config.apply(this.options...)
-	config.applyDefaultEqualitySpecs()
-
-	result.ok = check(expected, actual, config.specs...)
-	result.report = newFormatter(expected, actual, config).Format(result.ok)
-	config.reportT(result)
-	return result
-}
-
-func check(expected, actual interface{}, specs ...specFunc) bool {
-	for _, factory := range specs {
-		spec := factory(expected, actual)
-		if !spec.IsSatisfied() {
-			continue
-		}
-		if spec.AreEqual() {
-			return true
-		}
-		break
-	}
-	return false
+type Comparer interface {
+	Compare(a, b interface{}) (result Comparison)
 }
 
 type Comparison struct {
@@ -55,11 +21,37 @@ type Comparison struct {
 	report string
 }
 
-func (this Comparison) OK() bool {
-	return this.ok
+func (this Comparison) OK() bool       { return this.ok }
+func (this Comparison) Report() string { return this.report }
+
+type comparer struct {
+	config *config
 }
-func (this Comparison) Report() string {
-	return this.report
+
+func NewFromTesting(t *testing.T, options ...Option) Comparer {
+	return New(append(options, Options.testingT(t))...)
+}
+func New(options ...Option) Comparer {
+	return comparer{config: newConfig(options...)}
+}
+
+func (this comparer) Compare(a, b interface{}) (result Comparison) {
+	result.ok = this.check(a, b)
+	result.report = report(result.OK(), this.config.formatter, a, b)
+	this.config.reportT(result)
+	return result
+}
+func (this comparer) check(a, b interface{}) bool {
+	for _, spec := range this.config.specs {
+		if !spec.IsSatisfiedBy(a, b) {
+			continue
+		}
+		if spec.AreEqual(a, b) {
+			return true
+		}
+		break
+	}
+	return false
 }
 
 type Option func(*config)
@@ -68,169 +60,101 @@ var Options options
 
 type options struct{}
 
-func (options) TestingT(t *testing.T) Option {
+func (options) testingT(t *testing.T) Option {
 	return func(this *config) { this.t = t }
 }
-func (options) CompareNumerics() Option {
-	return func(this *config) { this.appendSpec(newNumericEqualitySpecification) }
+func (options) CompareWith(specs ...Specification) Option {
+	return func(this *config) { this.specs = append(this.specs, specs...) }
 }
-func (options) CompareTimes() Option {
-	return func(this *config) { this.appendSpec(newTimeEqualitySpecification) }
+func (options) FormatWith(formatter Formatter) Option {
+	return func(this *config) { this.formatter = formatter }
 }
-func (options) CompareDeep() Option {
-	return func(this *config) { this.appendSpec(newDeepEqualitySpecification) }
+func FormatVerb(verb string) Formatter {
+	return func(v interface{}) string { return fmt.Sprintf(verb, v) }
 }
-func (options) CompareEqual() Option {
-	return func(this *config) { this.appendSpec(newEqualitySpecification) }
-}
-func (options) FormatVerb(verb string) Option {
-	return func(this *config) {
-		this.format = func(a interface{}) string {
-			return fmt.Sprintf(verb, a)
+func FormatJSON(indent string) Formatter {
+	return func(v interface{}) string {
+		raw, err := json.MarshalIndent(v, "", indent)
+		if err != nil {
+			return err.Error()
 		}
+		return string(raw)
 	}
 }
-func (options) FormatJSON() Option {
-	return func(this *config) {
-		this.format = func(a interface{}) string {
-			serialized, err := json.Marshal(a)
-			if err != nil {
-				return err.Error()
-			}
-			return string(serialized)
-		}
-	}
-}
-
-type specFunc func(a, b interface{}) Specification
 
 type config struct {
-	t      *testing.T
-	specs  []specFunc
-	format func(interface{}) string
+	t         *testing.T
+	specs     []Specification
+	formatter Formatter
 }
 
-func (this *config) appendSpec(f specFunc) {
-	this.specs = append(this.specs, f)
-}
-
-func (this *config) apply(options ...Option) {
+func newConfig(options ...Option) *config {
+	this := new(config)
 	for _, option := range options {
 		option(this)
 	}
-}
-func (this *config) applyDefaultEqualitySpecs() {
-	if len(this.specs) > 0 {
-		return
+	if len(this.specs) == 0 {
+		this.specs = []Specification{NumericEquality{}, TimeEquality{}, DeepEquality{}}
 	}
-	this.apply(
-		Options.CompareNumerics(),
-		Options.CompareTimes(),
-		Options.CompareDeep(),
-	)
+	return this
 }
-func (this *config) applyDefaultFormatting(expected interface{}) {
-	if this.format != nil {
-		return
-	}
-
-	switch {
-	case isNumeric(expected):
-		this.apply(Options.FormatVerb("%v"))
-	case isTime(expected):
-		this.apply(Options.FormatVerb("%v"))
-	default:
-		this.apply(Options.FormatVerb("%#v"))
-	}
-}
-
 func (this *config) reportT(result Comparison) {
-	if !result.OK() && this.t != nil {
-		this.t.Error(result.Report())
+	if result.OK() {
+		return
 	}
+	if this.t == nil {
+		return
+	}
+	this.t.Error(result.Report())
 }
 
 type Specification interface {
-	IsSatisfied() bool
-	AreEqual() bool
+	IsSatisfiedBy(a, b interface{}) bool
+	AreEqual(a, b interface{}) bool
 }
 
-// deepEqualitySpecification compares any two values
-// using reflect.DeepEqual.
-//
+// DeepEquality compares any two values using reflect.DeepEqual.
 // https://golang.org/pkg/reflect/#DeepEqual
-//
-type deepEqualitySpecification struct {
-	a, b interface{}
+type DeepEquality struct{}
 
-	aType, bType reflect.Type
+func (this DeepEquality) IsSatisfiedBy(a, b interface{}) bool {
+	return reflect.TypeOf(a) == reflect.TypeOf(b)
+}
+func (this DeepEquality) AreEqual(a, b interface{}) bool {
+	return reflect.DeepEqual(a, b)
 }
 
-func newDeepEqualitySpecification(a, b interface{}) Specification {
-	return &deepEqualitySpecification{
-		a: a,
-		b: b,
-
-		aType: reflect.TypeOf(a),
-		bType: reflect.TypeOf(b),
-	}
-}
-func (this *deepEqualitySpecification) IsSatisfied() bool {
-	return this.aType == this.bType
-}
-func (this *deepEqualitySpecification) AreEqual() bool {
-	return reflect.DeepEqual(this.a, this.b)
-}
-
-// equalitySpecification compares any two values using
-// the built-in equality operator (`==`).
-//
+// SimpleEquality compares any two values using the built-in equality operator (`==`).
 // https://golang.org/ref/spec#Comparison_operators
-//
-type equalitySpecification struct {
-	a, b interface{}
+type SimpleEquality struct{}
+
+func (this SimpleEquality) IsSatisfiedBy(a, b interface{}) bool {
+	return reflect.TypeOf(a) == reflect.TypeOf(b)
 }
 
-func newEqualitySpecification(a, b interface{}) Specification {
-	return &equalitySpecification{a: a, b: b}
+func (this SimpleEquality) AreEqual(a, b interface{}) bool {
+	return a == b
 }
 
-func (this *equalitySpecification) IsSatisfied() bool {
-	return reflect.TypeOf(this.a) == reflect.TypeOf(this.b)
+// NumericEquality compares numeric values using the built-in equality
+// operator (`==`). Values of differing numeric reflect.Kind are each
+// converted to the type of the other and are compared with `==` in both
+// directions. https://golang.org/pkg/reflect/#Kind
+type NumericEquality struct{}
+
+func (this NumericEquality) IsSatisfiedBy(a, b interface{}) bool {
+	return isNumeric(a) && isNumeric(b)
 }
 
-func (this *equalitySpecification) AreEqual() bool {
-	return this.a == this.b
-}
-
-// numericEqualitySpecification compares numeric values using
-// the built-in equality operator (`==`). Values of differing
-// numeric reflect.Kind are each converted to the type of the
-// other and are compared with `==` in both directions.
-//
-// https://golang.org/ref/spec#Comparison_operators
-// https://golang.org/pkg/reflect/#Kind
-//
-type numericEqualitySpecification struct {
-	a, b interface{}
-}
-
-func newNumericEqualitySpecification(a, b interface{}) Specification {
-	return &numericEqualitySpecification{a: a, b: b}
-}
-func (this *numericEqualitySpecification) IsSatisfied() bool {
-	return isNumeric(this.a) && isNumeric(this.b)
-}
-
-func (this *numericEqualitySpecification) AreEqual() bool {
-	if this.a == this.b {
+func (this NumericEquality) AreEqual(a, b interface{}) bool {
+	if a == b {
 		return true
 	}
-	aValue := reflect.ValueOf(this.a)
-	bValue := reflect.ValueOf(this.b)
+	aValue := reflect.ValueOf(a)
+	bValue := reflect.ValueOf(b)
 	aAsB := aValue.Convert(bValue.Type()).Interface()
 	bAsA := bValue.Convert(aValue.Type()).Interface()
-	return this.a == bAsA && this.b == aAsB
+	return a == bAsA && b == aAsB
 }
 
 func isNumeric(v interface{}) bool {
@@ -249,30 +173,15 @@ func isNumeric(v interface{}) bool {
 		kind == reflect.Float64
 }
 
-// timeEqualitySpecification compares values both of type
-// time.Time using their Equal method.
-//
+// TimeEquality compares values both of type time.Time using their Equal method.
 // https://golang.org/pkg/time/#Time.Equal
-//
-type timeEqualitySpecification struct {
-	a time.Time
-	b time.Time
+type TimeEquality struct{}
 
-	aOK bool
-	bOK bool
+func (this TimeEquality) IsSatisfiedBy(a, b interface{}) bool {
+	return isTime(a) && isTime(b)
 }
-
-func newTimeEqualitySpecification(a, b interface{}) Specification {
-	this := &timeEqualitySpecification{}
-	this.a, this.aOK = a.(time.Time)
-	this.b, this.bOK = b.(time.Time)
-	return this
-}
-func (this *timeEqualitySpecification) IsSatisfied() bool {
-	return this.aOK && this.bOK
-}
-func (this *timeEqualitySpecification) AreEqual() bool {
-	return this.a.Equal(this.b)
+func (this TimeEquality) AreEqual(a, b interface{}) bool {
+	return a.(time.Time).Equal(b.(time.Time))
 }
 
 func isTime(v interface{}) bool {
@@ -280,67 +189,55 @@ func isTime(v interface{}) bool {
 	return ok
 }
 
-type formatter struct {
-	expected reflect.Value
-	actual   reflect.Value
-	config   *config
-}
+type Formatter func(interface{}) string
 
-func newFormatter(expected, actual interface{}, config *config) *formatter {
-	config.applyDefaultFormatting(expected)
-
-	return &formatter{
-		config:   config,
-		expected: reflect.ValueOf(expected),
-		actual:   reflect.ValueOf(actual),
+func report(equal bool, format Formatter, a, b interface{}) string {
+	if format == nil {
+		format = defaultFormatterForType(a)
 	}
-}
-
-func (this formatter) Format(equal bool) string {
 	if equal {
-		return this.formatEqual()
-	} else {
-		return this.formatUnequal()
+		return fmt.Sprintf("%s == %s", format(a), format(b))
+	}
+	aType := fmt.Sprintf("(%v)", reflect.TypeOf(a))
+	bType := fmt.Sprintf("(%v)", reflect.TypeOf(b))
+	longestType := int(math.Max(float64(len(aType)), float64(len(bType))))
+	aType += strings.Repeat(" ", longestType-len(aType))
+	bType += strings.Repeat(" ", longestType-len(bType))
+	aFormat := format(a)
+	bFormat := format(b)
+	typeDiff := diff(bType, aType)
+	valueDiff := diff(bFormat, aFormat)
+
+	builder := new(strings.Builder)
+	_, _ = fmt.Fprintf(builder, "\n")
+	_, _ = fmt.Fprintf(builder, "A: %s %s\n", aType, aFormat)
+	_, _ = fmt.Fprintf(builder, "B: %s %s\n", bType, bFormat)
+	_, _ = fmt.Fprintf(builder, "   %s %s\n", typeDiff, valueDiff)
+	_, _ = fmt.Fprintf(builder, "Stack (filtered):\n%s\n", stack())
+
+	return builder.String()
+}
+
+func defaultFormatterForType(v interface{}) Formatter {
+	switch {
+	case isNumeric(v) || isTime(v):
+		return FormatVerb("%v")
+	default:
+		return FormatVerb("%#v")
 	}
 }
 
-func (this formatter) formatEqual() string {
-	return fmt.Sprintf("%s == %s",
-		this.config.format(this.actual),
-		this.config.format(this.expected),
-	)
-}
-func (this formatter) formatUnequal() string {
-	expectedType := fmt.Sprintf("<%v>", this.expected.Type())
-	actualType := fmt.Sprintf("<%v>", this.actual.Type())
-	longestTypeName := max(len(expectedType), len(actualType))
-	expectedType += strings.Repeat(" ", longestTypeName-len(expectedType))
-	actualType += strings.Repeat(" ", longestTypeName-len(actualType))
-	expectedV := this.config.format(this.expected)
-	actualV := this.config.format(this.actual)
-	valueDiff := this.diff(actualV, expectedV)
-	typeDiff := this.diff(actualType, expectedType)
-
-	return fmt.Sprintf("\n"+
-		"Expected: %s %s\n"+
-		"Actual:   %s %s\n"+
-		"Diff:     %s %s\n"+
-		"Stack:     \n%s\n",
-		expectedType, expectedV,
-		actualType, actualV,
-		typeDiff, valueDiff,
-		debug.Stack(), // TODO: filter out lines from this file, go runtime, and go testing lib
-	)
-}
-
-func (this formatter) diff(actualV string, expectedV string) string {
+func diff(a, b string) string {
+	if strings.Contains(a, "\n") || strings.Contains(b, "\n") {
+		return ""
+	}
 	result := new(strings.Builder)
 
 	for x := 0; ; x++ {
-		if x >= len(actualV) && x >= len(expectedV) {
+		if x >= len(a) && x >= len(b) {
 			break
 		}
-		if x >= len(actualV) || x >= len(expectedV) || expectedV[x] != actualV[x] {
+		if x >= len(a) || x >= len(b) || a[x] != b[x] {
 			result.WriteString("^")
 		} else {
 			result.WriteString(" ")
@@ -349,9 +246,13 @@ func (this formatter) diff(actualV string, expectedV string) string {
 	return result.String()
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
+func stack() string {
+	lines := strings.Split(string(debug.Stack()), "\n")
+	var filtered []string
+	for x := 1; x < len(lines)-1; x += 2 {
+		if strings.Contains(lines[x+1], "_test.go:") {
+			filtered = append(filtered, lines[x], lines[x+1])
+		}
 	}
-	return b
+	return "> " + strings.Join(filtered, "\n> ")
 }
