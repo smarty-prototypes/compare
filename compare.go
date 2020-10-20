@@ -1,5 +1,5 @@
-// Package equality facilitates comparisons of any two values according to a set of specifications.
-package equality
+// Package compare facilitates comparisons of any two values according to a set of specifications.
+package compare
 
 import (
 	"bytes"
@@ -29,8 +29,8 @@ type comparer struct {
 	config *config
 }
 
-func NewFromTesting(t *testing.T, options ...Option) Comparer {
-	return New(append(options, Options.testingT(t))...)
+func ForTesting(t *testing.T, options ...Option) Comparer {
+	return New(append(options, testingT(t))...)
 }
 func New(options ...Option) Comparer {
 	return comparer{config: newConfig(options...)}
@@ -38,9 +38,18 @@ func New(options ...Option) Comparer {
 
 func (this comparer) Compare(a, b interface{}) (result Comparison) {
 	result.ok = this.check(a, b)
-	result.report = report(result.OK(), this.config.formatter, a, b)
+	result.report = report(result.OK(), this.resolveFormatter(a), a, b)
 	this.config.reportT(result)
 	return result
+}
+
+func (this comparer) resolveFormatter(a interface{}) Formatter {
+	if this.config.formatter != nil {
+		return this.config.formatter
+	}
+	config := new(config)
+	defaultFormatterForType(a)(config)
+	return config.formatter
 }
 func (this comparer) check(a, b interface{}) bool {
 	for _, spec := range this.config.specs {
@@ -57,29 +66,25 @@ func (this comparer) check(a, b interface{}) bool {
 
 type Option func(*config)
 
-var Options options
-
-type options struct{}
-
-func (options) testingT(t *testing.T) Option {
+func testingT(t *testing.T) Option {
 	return func(this *config) { this.t = t }
 }
-func (options) CompareWith(specs ...Specification) Option {
+func With(specs ...Specification) Option {
 	return func(this *config) { this.specs = append(this.specs, specs...) }
 }
-func (options) FormatWith(formatter Formatter) Option {
+func Format(formatter Formatter) Option {
 	return func(this *config) { this.formatter = formatter }
 }
-func FormatVerb(verb string) Formatter {
-	return func(v interface{}) string { return fmt.Sprintf(verb, v) }
+func FormatVerb(verb string) Option {
+	return Format(func(v interface{}) string { return fmt.Sprintf(verb, v) })
 }
-func FormatLength() Formatter {
-	return func(v interface{}) string {
+func FormatLength() Option {
+	return Format(func(v interface{}) string {
 		return fmt.Sprintf("Length: %d  Value: %#v", reflect.ValueOf(v).Len(), v)
-	}
+	})
 }
-func FormatJSON(indent string) Formatter {
-	return func(v interface{}) string {
+func FormatJSON(indent string) Option {
+	return Format(func(v interface{}) string {
 		raw, err := json.Marshal(v)
 		if err != nil {
 			return err.Error()
@@ -90,7 +95,7 @@ func FormatJSON(indent string) Formatter {
 		indented := new(bytes.Buffer)
 		_ = json.Indent(indented, raw, "", indent)
 		return indented.String()
-	}
+	})
 }
 
 type config struct {
@@ -220,9 +225,6 @@ func hasLen(v interface{}) bool {
 type Formatter func(interface{}) string
 
 func report(equal bool, format Formatter, a, b interface{}) string {
-	if format == nil {
-		format = defaultFormatterForType(a)
-	}
 	if equal {
 		return fmt.Sprintf("%s == %s", format(a), format(b))
 	}
@@ -246,7 +248,7 @@ func report(equal bool, format Formatter, a, b interface{}) string {
 	return builder.String()
 }
 
-func defaultFormatterForType(v interface{}) Formatter {
+func defaultFormatterForType(v interface{}) Option {
 	switch {
 	case isNumeric(v) || isTime(v):
 		return FormatVerb("%v")

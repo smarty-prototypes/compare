@@ -1,11 +1,11 @@
-package equality_test
+package compare_test
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/smartystreets-prototypes/equality"
+	"github.com/smartystreets-prototypes/compare"
 )
 
 func Test(t *testing.T) {
@@ -147,8 +147,8 @@ func Test(t *testing.T) {
 			Expected: 1,
 			Actual:   1,
 			AreEqual: true,
-			Options: []equality.Option{
-				equality.Options.CompareWith(equality.SimpleEquality{}),
+			Options: []compare.Option{
+				compare.With(compare.SimpleEquality{}),
 			},
 		},
 		{
@@ -156,8 +156,8 @@ func Test(t *testing.T) {
 			Expected: int32(1),
 			Actual:   int64(1),
 			AreEqual: false,
-			Options: []equality.Option{
-				equality.Options.CompareWith(equality.SimpleEquality{}),
+			Options: []compare.Option{
+				compare.With(compare.SimpleEquality{}),
 			},
 		},
 		{
@@ -165,28 +165,28 @@ func Test(t *testing.T) {
 			Expected: Thing{Integer: 42},
 			Actual:   Thing{Integer: 43},
 			AreEqual: false,
-			Options: []equality.Option{
-				equality.Options.FormatWith(equality.FormatJSON("  ")),
+			Options: []compare.Option{
+				compare.FormatJSON("  "),
 			},
 		},
 		{
 			Skip:     false,
-			Expected: "asdf",
-			Actual:   "qewr",
+			Expected: "1111",
+			Actual:   "2222",
 			AreEqual: true,
-			Options: []equality.Option{
-				equality.Options.CompareWith(equality.LengthEquality{}),
-				equality.Options.FormatWith(equality.FormatLength()),
+			Options: []compare.Option{
+				compare.With(compare.LengthEquality{}),
+				compare.FormatLength(),
 			},
 		},
 		{
 			Skip:     false,
-			Expected: "aaaa",
-			Actual:   "aaaaa",
+			Expected: "1111",
+			Actual:   "11111",
 			AreEqual: false,
-			Options: []equality.Option{
-				equality.Options.CompareWith(equality.LengthEquality{}),
-				equality.Options.FormatWith(equality.FormatLength()),
+			Options: []compare.Option{
+				compare.With(compare.LengthEquality{}),
+				compare.FormatLength(),
 			},
 		},
 	})
@@ -211,7 +211,7 @@ type TestCase struct {
 	Expected interface{}
 	Actual   interface{}
 	AreEqual bool
-	Options  []equality.Option
+	Options  []compare.Option
 }
 
 func (this TestCase) Title(x int) string {
@@ -229,18 +229,19 @@ func (this TestCase) Run(t *testing.T) {
 		t.Skip()
 	}
 	if this.AreEqual {
-		comparer := equality.NewFromTesting(t, this.Options...)
-		comparison := comparer.Compare(this.Expected, this.Actual)
-		if comparison.OK() {
-			t.Log(comparison.Report())
+		comparer := compare.ForTesting(t, this.Options...)
+		result := comparer.Compare(this.Expected, this.Actual)
+		report := result.Report()
+		if result.OK() {
+			t.Log(report)
 		} else {
-			t.Error(comparison.Report())
+			t.Error(report)
 		}
 	} else {
-		comparer := equality.New(this.Options...)
-		comparison := comparer.Compare(this.Expected, this.Actual)
-		if !comparison.OK() {
-			t.Log("(report printed below for visual inspection)", comparison.Report())
+		comparer := compare.New(this.Options...)
+		result := comparer.Compare(this.Expected, this.Actual)
+		if !result.OK() {
+			t.Log("(report printed below for visual inspection)", result.Report())
 		} else {
 			t.Errorf("unequal values %v and %v erroneously deemed equal", this.Expected, this.Actual)
 		}
