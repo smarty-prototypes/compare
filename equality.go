@@ -1,4 +1,4 @@
-// Package equality facilitates comparisons of any two values.
+// Package equality facilitates comparisons of any two values according to a set of specifications.
 package equality
 
 import (
@@ -47,7 +47,7 @@ func (this comparer) check(a, b interface{}) bool {
 		if !spec.IsSatisfiedBy(a, b) {
 			continue
 		}
-		if spec.AreEqual(a, b) {
+		if spec.Compare(a, b) {
 			return true
 		}
 		break
@@ -121,7 +121,7 @@ func (this *config) reportT(result Comparison) {
 
 type Specification interface {
 	IsSatisfiedBy(a, b interface{}) bool
-	AreEqual(a, b interface{}) bool
+	Compare(a, b interface{}) bool
 }
 
 // DeepEquality compares any two values using reflect.DeepEqual.
@@ -131,7 +131,7 @@ type DeepEquality struct{}
 func (this DeepEquality) IsSatisfiedBy(a, b interface{}) bool {
 	return reflect.TypeOf(a) == reflect.TypeOf(b)
 }
-func (this DeepEquality) AreEqual(a, b interface{}) bool {
+func (this DeepEquality) Compare(a, b interface{}) bool {
 	return reflect.DeepEqual(a, b)
 }
 
@@ -142,7 +142,7 @@ type SimpleEquality struct{}
 func (this SimpleEquality) IsSatisfiedBy(a, b interface{}) bool {
 	return reflect.TypeOf(a) == reflect.TypeOf(b)
 }
-func (this SimpleEquality) AreEqual(a, b interface{}) bool {
+func (this SimpleEquality) Compare(a, b interface{}) bool {
 	return a == b
 }
 
@@ -155,7 +155,7 @@ type NumericEquality struct{}
 func (this NumericEquality) IsSatisfiedBy(a, b interface{}) bool {
 	return isNumeric(a) && isNumeric(b)
 }
-func (this NumericEquality) AreEqual(a, b interface{}) bool {
+func (this NumericEquality) Compare(a, b interface{}) bool {
 	if a == b {
 		return true
 	}
@@ -188,7 +188,7 @@ type TimeEquality struct{}
 func (this TimeEquality) IsSatisfiedBy(a, b interface{}) bool {
 	return isTime(a) && isTime(b)
 }
-func (this TimeEquality) AreEqual(a, b interface{}) bool {
+func (this TimeEquality) Compare(a, b interface{}) bool {
 	return a.(time.Time).Equal(b.(time.Time))
 }
 
@@ -205,7 +205,7 @@ type LengthEquality struct{}
 func (this LengthEquality) IsSatisfiedBy(a, b interface{}) bool {
 	return hasLen(a) && hasLen(b)
 }
-func (this LengthEquality) AreEqual(a, b interface{}) bool {
+func (this LengthEquality) Compare(a, b interface{}) bool {
 	return reflect.ValueOf(a).Len() == reflect.ValueOf(b).Len()
 }
 func hasLen(v interface{}) bool {
