@@ -169,6 +169,26 @@ func Test(t *testing.T) {
 				equality.Options.FormatWith(equality.FormatJSON("  ")),
 			},
 		},
+		{
+			Skip:     false,
+			Expected: "asdf",
+			Actual:   "qewr",
+			AreEqual: true,
+			Options: []equality.Option{
+				equality.Options.CompareWith(equality.LengthEquality{}),
+				equality.Options.FormatWith(equality.FormatLength()),
+			},
+		},
+		{
+			Skip:     false,
+			Expected: "aaaa",
+			Actual:   "aaaaa",
+			AreEqual: false,
+			Options: []equality.Option{
+				equality.Options.CompareWith(equality.LengthEquality{}),
+				equality.Options.FormatWith(equality.FormatLength()),
+			},
+		},
 	})
 }
 
